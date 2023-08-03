@@ -236,6 +236,7 @@ from vulkan import (
     VK_QUEUE_GRAPHICS_BIT,
     vkEnumerateInstanceExtensionProperties,
     VK_EXT_DEBUG_REPORT_EXTENSION_NAME, VK_IMAGE_TYPE_3D, VK_FORMAT_R8_SINT, VK_IMAGE_VIEW_TYPE_3D, vkCmdDraw,
+    VK_FORMAT_R8_UINT, VK_FORMAT_R8_UNORM,
 )
 
 class InstanceProcAddr(object):
@@ -431,14 +432,20 @@ class VKAbstractApplication:
         self.width = width
         self.height = height
         self.window, self.wm_info = self.init_sdl_window()
+        sdl2.SDL_WarpMouseInWindow(self.window, width // 2, height // 2)
         sdl2.SDL_SetWindowTitle(self.window, ctypes.c_char_p(b"VKCube"))
         self.device_num = None
         self.device_extensions = [VK_KHR_SWAPCHAIN_EXTENSION_NAME]
         self.shader_stage_infos = []
         self.validation_layers = []
 
+        self.alive = True
+
+
+
         self.event_dict = dict()
         self.event_dict[sdl2.SDL_WINDOWEVENT_RESIZED] = self.resize_event
+        self.event_dict[sdl2.SDL_QUIT] = self.unalive_self
 
         self.__instance = None
         self.__callbcak = None
@@ -1699,7 +1706,7 @@ class VKAbstractApplication:
         if vkformat == VK_FORMAT_R8G8B8A8_UNORM:
             _image = _image.astype(np.uint8)
             image_size = width * height * depth * 4
-        elif vkformat == VK_FORMAT_R8_SINT:
+        elif vkformat in [VK_FORMAT_R8_SINT, VK_FORMAT_R8_UINT, VK_FORMAT_R8_UNORM]:
             _image = _image.astype(np.uint8)
             image_size = width * height * depth
         else:
@@ -1919,13 +1926,27 @@ class VKAbstractApplication:
         self.drawFrame()
 
     def sdl2_event_check(self):
+        x, y, s = self.get_mouse()
+        w, h = self.get_window_size()
+        #print(x, y)
+
+        if x!=w//2 or y!=h//2:
+            diff_x = x-w//2
+            diff_y = y-h//2
+            print(diff_x, diff_y)
+            sdl2.SDL_WarpMouseInWindow(self.window, w // 2, h // 2)
+
         for event in sdl2.ext.get_events():
             if event.type in self.event_dict:
                 self.event_dict[event.type](event)
 
     def loop_once(self):
+
         self.sdl2_event_check()
         self.render()
+
+    def unalive_self(self, e):
+        self.alive = False
 
     def resize_event(self, event):
         if event.size() != event.oldSize():

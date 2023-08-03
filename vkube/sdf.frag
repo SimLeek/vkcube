@@ -43,6 +43,7 @@
 layout(std140, binding=0) uniform InputTextureInfos {
     ivec3 iChannelResolution[4]; // Assuming there are 4 input textures
     ivec2 iResolution;
+
 } inputTextureInfos;
 layout(binding = 1) uniform sampler3D iChannel0;
 layout(binding = 2) uniform sampler3D iChannel1;
@@ -51,6 +52,8 @@ layout(binding = 4) uniform sampler2D iChannel3;
 layout(std140, binding=5) uniform UserInput {
     uniform float iTime;
     uniform vec3 iMouse;
+    uniform vec3 iPos;
+    uniform vec3 iRot;
 } userInput;
 layout(location = 0) in vec2 texcoord;
 layout(location = 0) out vec4 diffuseColor;
@@ -58,10 +61,7 @@ layout(location = 1) out float depthColor;
 
 vec3 getCameraPos(float t)
 {
-    return vec3(
-        0.0,//(cos(t * 0.35 * CAMERA_SPEED) + sin(t * 0.25 * CAMERA_SPEED) * 0.5) * 0.55,
-        0.0,//(sin(t * 0.25 * CAMERA_SPEED) + cos(t * 0.2 * CAMERA_SPEED) * 0.4) * 0.35,
-        t * CAMERA_SPEED);
+    return userInput.iPos;
 }
 
 float map(vec3 p, float s)
@@ -80,10 +80,11 @@ float map(vec3 p, float s)
     d = (d/0.875 - SURFACE_FACTOR) / sc;
     
     #ifdef TOP_PLANE
-    d = smax(d, p.y - MAX_HEIGHT, 0.3);
+    //d = smax(d, p.y - MAX_HEIGHT, 0.3);
+    d = smin(d, -p.y + MAX_HEIGHT, -0.3);
     #endif
     
-    float c = 0.75 - length(p.xy - getCameraPos(p.z / CAMERA_SPEED).xy);
+    float c = 0.75 - length(p.xy - userInput.iPos.xy);
     
     //d = smax(d, c, 0.75); //tunnel
     
@@ -209,7 +210,8 @@ bool trace(vec3 ro, vec3 rd, out HitInfo hit, const float tmax)
             return false;
         
         #ifdef TOP_PLANE
-        if (rd.y > 0.0 && ro.y + rd.y * nt > MAX_HEIGHT)
+        //if (rd.y > 0.0 && ro.y + rd.y * nt > MAX_HEIGHT)
+        if (rd.y < 0.0 && ro.y + rd.y * nt < -MAX_HEIGHT)
             return false;
         #endif
         
@@ -259,7 +261,7 @@ void main( )
 {
     diffuseColor = vec4(1,1,1,1); //check fail
 
-    vec2 fcord = vec2(gl_FragCoord.x, -gl_FragCoord.y);
+    vec2 fcord = vec2(gl_FragCoord.x, gl_FragCoord.y);
 
     vec2 pv = (2. * (fcord.xy) - inputTextureInfos.iResolution.xy) / inputTextureInfos.iResolution.y;
     vec2 uv = fcord.xy / inputTextureInfos.iResolution.xy;
@@ -269,30 +271,30 @@ void main( )
     
     #ifdef MOTION_BLUR
     float mb = MOTION_BLUR * dot(pv, pv) / invTanFov * hash13(vec3(fcord, iFrame));
-    vec3 ro = getCameraPos(userInput.iTime + mb);
+    vec3 ro = userInput.iPos;
     #else
-    vec3 ro = getCameraPos(userInput.iTime);
+    vec3 ro = userInput.iPos;
     #endif
     vec3 lo = vec3(0,0,-1);
     
-    vec2 m = vec2(-userInput.iMouse.x, userInput.iMouse.y) / inputTextureInfos.iResolution.xy;
+    //vec2 m = vec2(userInput.iRot.x, -userInput.iRot.y) / inputTextureInfos.iResolution.xy;
     
-    float ax = -m.x * TAU + PI;
-    float ay = -m.y * PI + PI * 0.5;
+    //float ax = -m.x * TAU + PI;
+    //float ay = -m.y * PI + PI * 0.5;
     
-    if (userInput.iMouse.z > 0.0)
-    {
-        lo.yz *= rot2D(ay);
-        lo.xz *= rot2D(ax);
+    //if (userInput.iMouse.z > 0.0)
+    //{
+        lo.yz *= rot2D(userInput.iRot.y);
+        lo.xz *= rot2D(userInput.iRot.x);
         lo += ro;
-    } else
-    {
+    //} else
+    /*{
         #ifdef MOTION_BLUR
         lo = getCameraPos(userInput.iTime + mb + 0.12);
         #else
         lo = getCameraPos(userInput.iTime + 0.12);
         #endif
-    }
+    }*/
     
     mat3 cmat = getCameraMatrix(ro, lo);
 
@@ -350,10 +352,11 @@ void main( )
     
     col *= (dif * 0.6 + 0.4) * lcol;
     
-    float spot = smoothstep(0.0, 0.96, dot(rd, cmat[2])) * max(dot(-rd, hit.n), 0.0);
-    spot *= 0.8 / (hit.t*hit.t);
+    /*float spot = smoothstep(0.0, 0.96, dot(rd, cmat[2])) * max(dot(-rd, hit.n), 0.0);
+    spot *= 0.8 / (hit.t*hit.t);*/
     
-    col += alb * spot * vec3(1, 0.8, 0.6);
+    //col += alb * spot * vec3(1, 0.8, 0.6);
+    col += alb * vec3(1, 0.8, 0.6);
     
     const float r0 = 0.08;
     float fre = r0 + (1.0 - r0) * pow(1.0 - dot(-rd, hit.n), 5.0);
@@ -364,12 +367,14 @@ void main( )
     
     col *= ao * 0.7 + 0.3;
     
-    vec3 fogCol = vec3(1, 1, 1) * 1.0;
+    //vec3 fogCol = vec3(1, 1, 1) * 1.0;
+    vec3 fogCol = vec3(1, 1, 1) * 0.0;
     
     #ifdef FOG
     
     #if 1
-    float fog = 1.0 - exp(-hit.t*hit.t * 0.003);
+    //float fog = 1.0 - exp(-hit.t*hit.t * 0.00012);
+    float fog = 1.0 - exp(-hit.t*hit.t * 0.0006);
     #else
     const float a = 0.032;
     const float b = 0.005;
@@ -385,12 +390,12 @@ void main( )
     #ifdef SHOW_STEPS
     #if 0
     col = vec3(float(hit.i) / float(STEPS));
-    if (-fcord.y < 10.0)
+    if (fcord.y < 10.0)
         col = vec3(uv.x);
     #else
     col = palette(float(hit.i) / float(STEPS));
     
-    if (-fcord.y < 10.0)
+    if (fcord.y < 10.0)
         col = palette(uv.x);
     #endif
     #endif

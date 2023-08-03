@@ -1,10 +1,10 @@
 # -*- coding: UTF-8 -*-
-import vkcube.sdl_include
+import vkube.sdl_include
 import sdl2
 import sdl2.ext
 from vulkan import *
 import time
-from vkcube.vkabstractapplication import VKAbstractApplication, AbstractUBO
+from vkube.vkabstractapplication import VKAbstractApplication, AbstractUBO
 import numpy as np
 import struct
 
@@ -30,9 +30,13 @@ class UserInputUBO(AbstractUBO):
     def __init__(self):
         self.iTime = np.zeros((4,), np.float32)
         self.iMouse = np.zeros((4,), np.float32)
+        self.ipos = np.zeros((3,), np.float32)
+        self.iRotation = np.zeros((2,), np.float32)
 
     def to_bytes(self):
-        return struct.pack(f"<f{'x' * 12}fff{'x' * 4}", self.iTime[0], *self.iMouse[:3])
+        return struct.pack(f"<f{'x' * 12}fff{'x' * 4}fff{'x' * 4}ff",
+                           self.iTime[0],
+                           *self.iMouse[:3], *self.ipos, *self.iRotation)
 
     @property
     def nbytes(self):
@@ -45,8 +49,11 @@ class VKOctreeApplication(VKAbstractApplication):
 
         self.input_texture_infos_ubo = InputTextureInfosUBO()
         self.user_input_ubo = UserInputUBO()
+        self.capturing_mouse = True
 
         super().__init__()
+
+        self.event_dict[sdl2.SDL_KEYDOWN] = self.key_down_event
 
         # self.event_dict[sdl2.SDL_WINDOWEVENT_RESIZED] = self.resize_event
 
@@ -67,7 +74,7 @@ class VKOctreeApplication(VKAbstractApplication):
             binding=1,
             descriptorType=VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             descriptorCount=1,
-            stageFlags=VK_SHADER_STAGE_FRAGMENT_BIT,
+            stageFlags=VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
         )
 
         i_channel_1_sampler_binding = VkDescriptorSetLayoutBinding(
@@ -113,7 +120,7 @@ class VKOctreeApplication(VKAbstractApplication):
 
     def create_uniforms(self):
         self.create_ubo(self.input_texture_infos_ubo, 0)
-        shape1 = self.create_3d_texture('clouds.npz', 1, VK_FORMAT_R8_SINT)
+        shape1 = self.create_3d_texture('clouds.npz', 1, VK_FORMAT_R8_UNORM)
         self.input_texture_infos_ubo.iChannelResolution[0, :3] = shape1[:3]
         shape2 = self.create_3d_texture('cloud_rgba.npz', 2, VK_FORMAT_R8G8B8A8_UNORM)
         self.input_texture_infos_ubo.iChannelResolution[1, :3] = shape2[:3]
@@ -167,8 +174,60 @@ class VKOctreeApplication(VKAbstractApplication):
         vkUnmapMemory(self._logical_device, self._uniform_buffer_memories[0])
         vkUnmapMemory(self._logical_device, self._uniform_buffer_memories[1])
 
+    def key_down_event(self, e:sdl2.SDL_Event):
+        """Events for one time key presses, like pause"""
+        if e.key.keysym.scancode == sdl2.SDL_SCANCODE_ESCAPE:
+            self.capturing_mouse = not self.capturing_mouse
+
+
+    def sdl2_event_check(self):
+
+        if self.capturing_mouse:
+            x, y, s = self.get_mouse()
+            w, h = self.get_window_size()
+            #print(x, y)
+
+            if x!=w//2 or y!=h//2:
+                diff_x = x-w//2
+                diff_y = y-h//2
+
+                self.user_input_ubo.iRotation[0] -= diff_x /w
+                self.user_input_ubo.iRotation[1] -= diff_y /h
+                if self.user_input_ubo.iRotation[1] > np.pi/2:
+                    self.user_input_ubo.iRotation[1] = np.pi/2 -.01
+                elif self.user_input_ubo.iRotation[1] < -np.pi/2:
+                    self.user_input_ubo.iRotation[1] = -np.pi/2 +.01
+
+                sdl2.SDL_WarpMouseInWindow(self.window, w // 2, h // 2)
+
+        key_states = sdl2.SDL_GetKeyboardState(None)
+        if key_states[sdl2.SDL_SCANCODE_W]:
+            self.user_input_ubo.ipos[0] -= np.sin(self.user_input_ubo.iRotation[0])*.01
+            self.user_input_ubo.ipos[2] -= np.cos(self.user_input_ubo.iRotation[0])*.01
+        if key_states[sdl2.SDL_SCANCODE_S]:
+            self.user_input_ubo.ipos[0] += np.sin(self.user_input_ubo.iRotation[0]) * .01
+            self.user_input_ubo.ipos[2] += np.cos(self.user_input_ubo.iRotation[0]) * .01
+        if key_states[sdl2.SDL_SCANCODE_A]:
+            self.user_input_ubo.ipos[0] -= np.cos(self.user_input_ubo.iRotation[0]) * .01
+            self.user_input_ubo.ipos[2] += np.sin(self.user_input_ubo.iRotation[0]) * .01
+        if key_states[sdl2.SDL_SCANCODE_D]:
+            self.user_input_ubo.ipos[0] += np.cos(self.user_input_ubo.iRotation[0]) * .01
+            self.user_input_ubo.ipos[2] -= np.sin(self.user_input_ubo.iRotation[0]) * .01
+        if key_states[sdl2.SDL_SCANCODE_SPACE]:
+            self.user_input_ubo.ipos[1] -= .01
+        if key_states[sdl2.SDL_SCANCODE_LSHIFT]:
+            self.user_input_ubo.ipos[1] += .01
+        #elif key_states[sdl2.SDL_SCANCODE_ESCAPE]:
+        #    self.capturing_mouse = not self.capturing_mouse
+
+        for event in sdl2.ext.get_events():
+            if event.type in self.event_dict:
+                self.event_dict[event.type](event)
+
+
+
 
 if __name__ == "__main__":
     app = VKOctreeApplication()
-    while True:
+    while app.alive:
         app.loop_once()

@@ -1,14 +1,14 @@
 // https://www.shadertoy.com/view/DlGGDd
 
-//#define FOG
+#define FOG
 //#define ROUNDED_NORMALS
 #define TOP_PLANE
 #define DYNAMIC_LOD
-//#define VOXEL_NORMALS
+#define VOXEL_NORMALS
 
 //#define MOTION_BLUR 0.05
 
-#define SURFACE_FACTOR 0.5
+#define SURFACE_FACTOR 0.3
 
 #define CAMERA_SPEED -0.1
 

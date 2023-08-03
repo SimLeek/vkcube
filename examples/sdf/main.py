@@ -6,13 +6,13 @@
 import ctypes
 import os
 import platform
-import vkcube.sdl_include
+import vkube.sdl_include
 import sdl2
 import sdl2.ext
 import time
 from vulkan import *
 
-import vkcube.vkabstractapplication
+import vkube.vkabstractapplication
 
 WIDTH = 1280
 HEIGHT = 720
@@ -156,8 +156,8 @@ def surface_win32():
     vkCreateWin32SurfaceKHR = vkGetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR")
     surface_create = VkWin32SurfaceCreateInfoKHR(
         sType=VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-        hinstance=get_instance(vkcube.vkabstractapplication.win.window),
-        hwnd=vkcube.vkabstractapplication.win.window,
+        hinstance=get_instance(vkube.vkabstractapplication.win.window),
+        hwnd=vkube.vkabstractapplication.win.window,
         flags=0,
     )
     return vkCreateWin32SurfaceKHR(instance, surface_create, None)

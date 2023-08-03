@@ -1,0 +1,6 @@
+.idea/workspace.xml
+.idea/misc.xml
+__pycache__/
+.cache/
+.idea/MineSim.iml
+gltensors.egg-info/
