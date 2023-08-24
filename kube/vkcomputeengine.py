@@ -1,10 +1,10 @@
 # -*- coding: UTF-8 -*-
-import vkube.sdl_include
+import kube.sdl_include
 import sdl2
 import sdl2.ext
 from vulkan import *
 import time
-from vkube.vkabstractapplication import VKAbstractApplication, AbstractUBO
+from kube.vkabstractapplication import VKAbstractApplication, AbstractUBO
 import numpy as np
 import struct
 
