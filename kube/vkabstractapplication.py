@@ -239,103 +239,11 @@ from vulkan import (
     VK_FORMAT_R8_UINT, VK_FORMAT_R8_UNORM,
 )
 
-class InstanceProcAddr(object):
-    """Dynamically check for and load function from Vulkan"""
-
-    T = None
-
-    def __init__(self, func):
-        self.__func = func
-
-    def __call__(self, *args, **kwargs):
-        funcName = self.__func.__name__
-        func = InstanceProcAddr.procfunc(funcName)
-        if func:
-            return func(*args, **kwargs)
-        else:
-            return VK_ERROR_EXTENSION_NOT_PRESENT
-
-    @staticmethod
-    def procfunc(funcName):
-        return vkGetInstanceProcAddr(InstanceProcAddr.T, funcName)
-
-
-class DeviceProcAddr(InstanceProcAddr):
-    """Gets function addresses specific to devices rather than instances."""
-
-    @staticmethod
-    def procfunc(funcName):
-        return vkGetDeviceProcAddr(InstanceProcAddr.T, funcName)
-
-
-@InstanceProcAddr
-def vkCreateDebugReportCallbackEXT(instance, pCreateInfo, pAllocator):
-    pass
-
-
-@InstanceProcAddr
-def vkDestroyDebugReportCallbackEXT(instance, pCreateInfo, pAllocator):
-    pass
-
-
-@InstanceProcAddr
-def vkCreateWin32SurfaceKHR(instance, pCreateInfo, pAllocator):
-    pass
-
-
-@InstanceProcAddr
-def vkDestroySurfaceKHR(instance, surface, pAllocator):
-    pass
-
-
-@InstanceProcAddr
-def vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndex, surface):
-    pass
-
-
-@InstanceProcAddr
-def vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface):
-    pass
-
-
-@InstanceProcAddr
-def vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface):
-    pass
-
-
-@InstanceProcAddr
-def vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface):
-    pass
-
-
-@DeviceProcAddr
-def vkCreateSwapchainKHR(device, pCreateInfo, pAllocator):
-    pass
-
-
-@DeviceProcAddr
-def vkDestroySwapchainKHR(device, swapchain, pAllocator):
-    pass
-
-
-@DeviceProcAddr
-def vkGetSwapchainImagesKHR(device, swapchain):
-    pass
-
-
-@DeviceProcAddr
-def vkAcquireNextImageKHR(device, swapchain, timeout, semaphore, fence):
-    pass
-
-
-@DeviceProcAddr
-def vkQueuePresentKHR(queue, pPresentInfo):
-    pass
-
-
-def debugCallback(*args):
-    print("DEBUG: {} {}".format(args[5], args[6]))
-    return 0
+from .vkprochelp import (InstanceProcAddr, DeviceProcAddr, vkCreateDebugReportCallbackEXT, \
+    vkDestroyDebugReportCallbackEXT, vkDestroySurfaceKHR, vkGetPhysicalDeviceSurfaceSupportKHR, \
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR, vkGetPhysicalDeviceSurfaceFormatsKHR, \
+    vkGetPhysicalDeviceSurfacePresentModesKHR, vkCreateSwapchainKHR, vkDestroySwapchainKHR, vkGetSwapchainImagesKHR, \
+    vkAcquireNextImageKHR, vkQueuePresentKHR)
 
 
 class Win32misc(object):
@@ -483,7 +391,6 @@ class VKAbstractApplication:
         self.__depth_image_view = None
 
         self.__descriptor_pool = None
-        self.__descriptor_set = None
         self._descriptor_set_layout = None
         self.__uniform_buffers = []
         self._uniform_buffer_memories = []
@@ -1908,7 +1815,7 @@ class VKAbstractApplication:
         )
 
         pool_size1 = VkDescriptorPoolSize(
-            type=VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorCount=ubo.nbytes
+            type=VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorCount=1
         )
 
         self.descriptor_pools.append(pool_size1)
